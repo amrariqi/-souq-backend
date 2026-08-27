@@ -12,10 +12,9 @@
  *   5) لرفعه أونلاين بشكل دائم: استضفه على Render أو Railway (مجاني للبداية)
  */
 
-require('dotenv').config();
+require('dotenv/config');
 const express = require('express');
 const cors = require('cors');
-const { NowPaymentsSDK } = require('@nowpaymentsio/nowpayments-sdk-nodejs');
 
 const app = express();
 app.use(cors());
@@ -26,13 +25,18 @@ app.use('/webhooks/nowpayments', express.raw({ type: 'application/json' }));
 const PORT = process.env.PORT || 3000;
 const PUBLIC_URL = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
 
-const sdk = new NowPaymentsSDK({
-  apiKey: process.env.NOWPAYMENTS_API_KEY,           // من لوحة تحكم NOWPayments
+let sdk; // سيتم تهيئته داخل async بسبب أن المكتبة ES Module فقط
+
+async function initSdk() {
+  const { NowPaymentsSDK } = await import('@nowpaymentsio/nowpayments-sdk-nodejs');
+  sdk = new NowPaymentsSDK({
+    apiKey: process.env.NOWPAYMENTS_API_KEY,           // من لوحة تحكم NOWPayments
   ipnSecret: process.env.NOWPAYMENTS_IPN_SECRET,      // من نفس الصفحة (IPN Secret Key)
   ipnCallbackUrl: `${PUBLIC_URL}/webhooks/nowpayments`,
   successUrl: `${PUBLIC_URL}/payment/success`,
-  cancelUrl: `${PUBLIC_URL}/payment/cancel`,
-});
+    cancelUrl: `${PUBLIC_URL}/payment/cancel`,
+  });
+}
 
 // ---------------------------------------------------------------
 // قاعدة بيانات بسيطة في الذاكرة (للتجربة فقط)
@@ -121,7 +125,8 @@ app.get('/api/order-status/:orderId', (req, res) => {
 app.get('/payment/success', (req, res) => res.send('✅ تم الدفع بنجاح، شكراً لك!'));
 app.get('/payment/cancel', (req, res) => res.send('❌ تم إلغاء الدفع.'));
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  await initSdk(); // تهيئة SDK بعد بدء الاستماع (المكتبة ES Module فقط)
   console.log(`🚀 السيرفر يعمل على المنفذ ${PORT}`);
   console.log(`🔗 رابط الـ Webhook الذي يجب وضعه في NOWPayments: ${PUBLIC_URL}/webhooks/nowpayments`);
 });
